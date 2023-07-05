@@ -6,15 +6,15 @@ uint16_t BankAccount::total_accounts = 0;
 BankAccount::BankAccount()
     : account_id(0), account_balance(0.0)
 {
-    memset(account_name, 0, NAME_PASSWORD_SIZE);
-    memset(account_password, 0, NAME_PASSWORD_SIZE);
+    memset(account_name, 0, NAMESIZE);
+    memset(account_password, 0,PASSWORDSIZE);
 }
 
 BankAccount::BankAccount(const uint8_t *name, const uint8_t *password)
     : account_id(total_accounts++), account_balance(0.0)
 {
-    memcpy(account_name, name, NAME_PASSWORD_SIZE);
-    memcpy(account_password, password, NAME_PASSWORD_SIZE);
+    memcpy(account_name, name, NAMESIZE);
+    memcpy(account_password, password,PASSWORDSIZE);
 }
 
 uint16_t BankAccount::get_account_id() const
@@ -24,14 +24,14 @@ uint16_t BankAccount::get_account_id() const
 
 bool BankAccount::verify_account_name(uint8_t *name) const
 {
-    if (memcmp(account_name, name, sizeof(account_name)) != 0)
+    if (memcmp(account_name, name, NAMESIZE) != 0)
     {
         return false;
     }
     return true;
 }
 
-const uint8_t* BankAccount::get_account_name() const
+const uint8_t *BankAccount::get_account_name() const
 {
     return account_name;
 }
@@ -58,12 +58,12 @@ bool BankAccount::withdraw(double amount)
 
 void BankAccount::set_password(const uint8_t *password)
 {
-    memcpy(account_password, password, NAME_PASSWORD_SIZE);
+    memcpy(account_password, password, PASSWORDSIZE);
 }
 
 bool BankAccount::verify_password(const uint8_t *password) const
 {
-    if (memcmp(account_password, password, NAME_PASSWORD_SIZE) == 0)
+    if (memcmp(account_password, password, PASSWORDSIZE) == 0)
     {
         return true;
     }

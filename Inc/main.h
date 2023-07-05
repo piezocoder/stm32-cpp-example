@@ -53,11 +53,13 @@
 #define TXENDMESSAGESIZE                     (COUNTOF(aTxEndMessage) - 1)
 
 /* Size of Reception buffer */
-#define RXBUFFERSIZE                      10
-
-/* Size of account name and password */
-#define NAME_PASSWORD_SIZE                 10
-  
+#define NAMESIZE                        10
+#define PASSWORDSIZE                    10
+#define AMOUNTSIZE                      10
+#define OPTIONSIZE                      3
+#define MAX_ACCOUNTS                    10
+#define ENTRY                           0xFFFFFFFF
+#define TRANSACTION                     20000
 /* Exported macro ------------------------------------------------------------*/
 #define COUNTOF(__BUFFER__)   (sizeof(__BUFFER__) / sizeof(*(__BUFFER__)))
 /* Exported functions ------------------------------------------------------- */

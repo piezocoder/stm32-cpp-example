@@ -7,8 +7,8 @@ class BankAccount {
 private:
     static uint16_t total_accounts; // Class variable to track the total number of accounts
     uint16_t account_id;
-    uint8_t account_name[NAME_PASSWORD_SIZE];
-    uint8_t account_password[NAME_PASSWORD_SIZE];
+    uint8_t account_name[NAMESIZE];
+    uint8_t account_password[PASSWORDSIZE];
     double account_balance;
     
 public:
