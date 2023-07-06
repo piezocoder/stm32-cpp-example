@@ -1,6 +1,6 @@
 ## Programming STM32 in C++ - Embedded Bank
 
-#### Application Overview
+#### Overview
 * Embedded banking via UART
 * Bank account class with id, name, balance
 * Create new accounts with name and password, store accounts in a fixed-length vector
