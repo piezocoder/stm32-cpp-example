@@ -95,6 +95,9 @@ int main(void)
         if (account.verify_account_name(account_name) && account.verify_password(password))
         {
           account_found = true;
+          char tx_buf[100] = {0};
+          sprintf(tx_buf, "\r\nWelcome back user '%s'!", account_name);
+          UART_SendString(tx_buf);
           manage_success = manage_account(account);
           break;
         }
