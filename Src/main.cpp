@@ -20,11 +20,11 @@ static void SystemClock_Config(void);
 static void Error_Blink(void);
 static void UART_Init(void);
 static void GPIO_Init(void);
-void UART_ReadChars(uint8_t *buf, uint32_t buf_size, uint32_t delay);
+bool UART_ReadChars(uint8_t *buf, uint32_t buf_size, uint32_t delay);
 void UART_SendString(const char *msg);
-void get_user_input(const char *prompt, uint8_t *buf, uint32_t buf_size, uint32_t delay);
-BankAccount create_account(etl::vector<BankAccount, MAX_ACCOUNTS> &accounts);
-void manage_account(BankAccount &account);
+bool get_user_input(const char *prompt, uint8_t *buf, uint32_t buf_size, uint32_t delay);
+bool create_account(etl::vector<BankAccount, MAX_ACCOUNTS> &accounts);
+bool manage_account(BankAccount &account);
 static void Error_Handler(void);
 
 /* Private functions ---------------------------------------------------------*/
@@ -51,47 +51,58 @@ int main(void)
 *****************************************************");
     prompt = "\r\nNew account (N) or Existing account (E). \r\nPlease enter: ";
     uint8_t option[OPTIONSIZE] = {0};
-    get_user_input(prompt, option, sizeof(option), ENTRY);
+    get_user_input(prompt, option, sizeof(option), ENTRY_WAIT); // blocking forever
 
     if (option[0] == 'N')
     {
-      uint16_t count = BankAccount::get_total_accounts();
-      if (count == MAX_ACCOUNTS)
-        UART_SendString("\r\nThe bank capacity is full. Your account cannot be created.");
-      else
       {
-        BankAccount new_account = create_account(accounts);
-        char temp_buf[100] = {0};
-        const uint8_t *new_account_name = new_account.get_account_name();
-        sprintf(temp_buf, "\r\nNew account '%s' created.", new_account_name);
-        UART_SendString(temp_buf);
-        manage_account(new_account);
-        accounts[count] = new_account;
+        if (!create_account(accounts))
+        {
+          UART_SendString("\r\nOperation aborted! Please try again!");
+          continue;
+        }
+        const uint16_t new_account_idx = BankAccount::get_total_accounts() - 1;
+        if (!manage_account(accounts[new_account_idx]))
+        {
+          UART_SendString("\r\nOperation aborted! Please try again!");
+          continue;
+        }
       }
     }
     else if (option[0] == 'E')
     {
       uint8_t account_name[NAMESIZE] = {0};
       prompt = "\r\nEnter account name: ";
-      get_user_input(prompt, account_name, sizeof(account_name), TRANSACTION);
+      if (!get_user_input(prompt, account_name, sizeof(account_name), TRANSACTION_WAIT))
+      {
+        UART_SendString("\r\nOperation aborted! Please try again!");
+        continue;
+      }
 
       uint8_t password[PASSWORDSIZE] = {0};
       prompt = "\r\nEnter password: ";
-      get_user_input(prompt, password, sizeof(password), TRANSACTION);
+      if (!get_user_input(prompt, password, sizeof(password), TRANSACTION_WAIT))
+      {
+        UART_SendString("\r\nOperation aborted! Please try again!");
+        continue;
+      }
 
       // Find the account
       bool account_found = false;
+      bool manage_success = false;
       for (auto &account : accounts)
       {
         if (account.verify_account_name(account_name) && account.verify_password(password))
         {
           account_found = true;
-          manage_account(account);
+          manage_success = manage_account(account);
           break;
         }
       }
       if (!account_found)
         UART_SendString("\r\nInvalid account name or password.");
+      else if (!manage_success)
+        UART_SendString("\r\nOperation aborted! Please try again!");
     }
     else
       UART_SendString("\r\nInvalid option.");
@@ -222,17 +233,20 @@ static void GPIO_Init(void)
   HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
 }
 
-void UART_ReadChars(uint8_t *buf, uint32_t buf_size, uint32_t delay)
+bool UART_ReadChars(uint8_t *buf, uint32_t buf_size, uint32_t delay)
 {
   memset(buf, 0, buf_size);
   uint8_t temp_char = 0;
+
   for (uint8_t i = 0; i < buf_size - 1; i++)
   {
-    HAL_UART_Receive(&UartHandle, &temp_char, 1, delay);
+    if (HAL_UART_Receive(&UartHandle, &temp_char, 1, delay) != HAL_OK)
+      return false;
     if (temp_char == '\r')
       break;
     buf[i] = temp_char;
   }
+  return true;
 }
 
 void UART_SendString(const char *msg)
@@ -240,29 +254,35 @@ void UART_SendString(const char *msg)
   HAL_UART_Transmit(&UartHandle, (uint8_t *)msg, strlen(msg), HAL_MAX_DELAY);
 }
 
-void get_user_input(const char *prompt, uint8_t *buf, uint32_t buf_size, uint32_t delay)
+bool get_user_input(const char *prompt, uint8_t *buf, uint32_t buf_size, uint32_t delay)
 {
   UART_SendString(prompt);
-  UART_ReadChars(buf, buf_size, delay);
+  return UART_ReadChars(buf, buf_size, delay);
 }
 
-BankAccount create_account(etl::vector<BankAccount, MAX_ACCOUNTS> &accounts)
+bool create_account(etl::vector<BankAccount, MAX_ACCOUNTS> &accounts)
 {
   uint8_t account_name[NAMESIZE] = {0};
   uint8_t password[PASSWORDSIZE] = {0};
   uint8_t confirm_password[PASSWORDSIZE] = {0};
-  char tx_buff[100] = {0};
+  char tx_buf[100] = {0};
   bool is_unique = true;
+
+  uint16_t count = BankAccount::get_total_accounts();
+  if (count == MAX_ACCOUNTS)
+    UART_SendString("\r\nThe bank capacity is full. Your account cannot be created.");
+
   while (true)
   {
-    get_user_input("\r\nEnter account name: ", account_name, sizeof(account_name), TRANSACTION);
+    if (!get_user_input("\r\nEnter account name: ", account_name, sizeof(account_name), TRANSACTION_WAIT))
+      return false;
     is_unique = true;
     for (auto &account : accounts)
     {
       if (account.verify_account_name(account_name))
       {
-        sprintf(tx_buff, "\r\nAccount name '%s' is not available!", account_name);
-        UART_SendString(tx_buff);
+        sprintf(tx_buf, "\r\nAccount name '%s' is not available!", account_name);
+        UART_SendString(tx_buf);
         is_unique = false;
         break;
       }
@@ -274,20 +294,27 @@ BankAccount create_account(etl::vector<BankAccount, MAX_ACCOUNTS> &accounts)
 
   while (true)
   {
-    get_user_input("\r\nEnter password: ", password, sizeof(password), TRANSACTION);
+    if (!get_user_input("\r\nEnter password: ", password, sizeof(password), TRANSACTION_WAIT))
+      return false;
 
-    get_user_input("\r\nConfirm password: ", confirm_password, sizeof(confirm_password), TRANSACTION);
+    if (!get_user_input("\r\nConfirm password: ", confirm_password, sizeof(confirm_password), TRANSACTION_WAIT))
+      return false;
 
     if (memcmp(password, confirm_password, PASSWORDSIZE) != 0)
     {
       UART_SendString("\r\nPassword and confirm password do not match.\n");
       continue;
     }
-    return BankAccount(account_name, password);
+    BankAccount new_account(account_name, password);
+    uint16_t id = new_account.get_account_id();
+    accounts[id] = new_account;
+    sprintf(tx_buf, "\r\nNew account '%s' created.", account_name);
+    UART_SendString(tx_buf);
+    return true;
   }
 }
 
-void manage_account(BankAccount &account)
+bool manage_account(BankAccount &account)
 {
   uint8_t option[OPTIONSIZE] = {0};
   uint8_t amount_buf[AMOUNTSIZE] = {0};
@@ -297,7 +324,8 @@ void manage_account(BankAccount &account)
   while (true)
   {
     prompt = "\r\nBalance (B), Deposit (D), Withdraw (W) or Quit (Q). \r\nPlease enter: ";
-    get_user_input(prompt, option, sizeof(option), TRANSACTION);
+    if (!get_user_input(prompt, option, sizeof(option), TRANSACTION_WAIT))
+      return false;
 
     if (option[0] == 'B')
     {
@@ -308,7 +336,8 @@ void manage_account(BankAccount &account)
     else if (option[0] == 'D')
     {
       prompt = "\r\nEnter deposit amount: ";
-      get_user_input(prompt, amount_buf, sizeof(amount_buf), TRANSACTION);
+      if (!get_user_input(prompt, amount_buf, sizeof(amount_buf), TRANSACTION_WAIT))
+        return false;
       amount = atof((char *)amount_buf);
       account.deposit(amount);
       sprintf(msg, "\r\nDeposit of %0.1f successful.", amount);
@@ -317,11 +346,12 @@ void manage_account(BankAccount &account)
     else if (option[0] == 'W')
     {
       prompt = "\r\nEnter withdrawal amount: ";
-      get_user_input(prompt, amount_buf, sizeof(amount_buf), TRANSACTION);
+      if (!get_user_input(prompt, amount_buf, sizeof(amount_buf), TRANSACTION_WAIT))
+        return false;
       amount = atof((char *)amount_buf);
       if (account.withdraw(amount))
       {
-        sprintf(msg, "\r\Withdrawal of %0.1f successful.", amount);
+        sprintf(msg, "\r\nWithdrawal of %0.1f successful.", amount);
         UART_SendString(msg);
       }
       else
@@ -329,11 +359,12 @@ void manage_account(BankAccount &account)
     }
     else if (option[0] == 'Q')
       break;
-    else if (option[0] == 0)    // no input, timeout
+    else if (option[0] == 0) // no input, timeout
       continue;
     else
       UART_SendString("\r\nInvalid option.");
   }
+  return true;
 }
 
 static void Error_Handler(void)
@@ -351,7 +382,7 @@ static void Error_Handler(void)
  * @param  line: assert_param error line source number
  * @retval None
  */
-void assert_failed(uint8_t *file, uint32_t line)
+void assert_aborted(uint8_t *file, uint32_t line)
 {
   /* User can add his own implementation to report the file name and line number,
      ex: printf("Wrong parameters value: file %s on line %d\r\n", file, line) */

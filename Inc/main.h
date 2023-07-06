@@ -58,8 +58,8 @@
 #define AMOUNTSIZE                      10
 #define OPTIONSIZE                      3
 #define MAX_ACCOUNTS                    10
-#define ENTRY                           0xFFFFFFFF
-#define TRANSACTION                     20000
+#define ENTRY_WAIT                      0xFFFFFFFFU
+#define TRANSACTION_WAIT                20000U
 /* Exported macro ------------------------------------------------------------*/
 #define COUNTOF(__BUFFER__)   (sizeof(__BUFFER__) / sizeof(*(__BUFFER__)))
 /* Exported functions ------------------------------------------------------- */
