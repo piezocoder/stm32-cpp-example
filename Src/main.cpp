@@ -6,7 +6,8 @@
 #include "bank_account.h"
 #include <stdio.h>
 #include <string.h>
-#include "etl/vector.h" /* --- etl library --- */
+#include <stdlib.h>
+#include <array>
 
 UART_HandleTypeDef UartHandle;
 static GPIO_InitTypeDef GPIO_InitStruct;
@@ -23,7 +24,7 @@ static void GPIO_Init(void);
 bool UART_ReadChars(uint8_t *buf, uint32_t buf_size, uint32_t delay);
 void UART_SendString(const char *msg);
 bool get_user_input(const char *prompt, uint8_t *buf, uint32_t buf_size, uint32_t delay);
-bool create_account(etl::vector<BankAccount, MAX_ACCOUNTS> &accounts);
+bool create_account(std::array<BankAccount, MAX_ACCOUNTS> &accounts);
 bool manage_account(BankAccount &account);
 static void Error_Handler(void);
 
@@ -41,7 +42,7 @@ int main(void)
   GPIO_Init();
   UART_Init();
 
-  etl::vector<BankAccount, MAX_ACCOUNTS> accounts(MAX_ACCOUNTS);
+  std::array<BankAccount, MAX_ACCOUNTS> accounts;
   const char *prompt = nullptr;
   /* Infinite loop */
   while (1)
@@ -263,7 +264,7 @@ bool get_user_input(const char *prompt, uint8_t *buf, uint32_t buf_size, uint32_
   return UART_ReadChars(buf, buf_size, delay);
 }
 
-bool create_account(etl::vector<BankAccount, MAX_ACCOUNTS> &accounts)
+bool create_account(std::array<BankAccount, MAX_ACCOUNTS> &accounts)
 {
   uint8_t account_name[NAMESIZE] = {0};
   uint8_t password[PASSWORDSIZE] = {0};
